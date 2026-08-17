@@ -1,0 +1,26 @@
+services:
+  rosfin-terrorists:
+    build: .
+    image: rosfin-terrorists:latest
+    container_name: rosfin-terrorists
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ROSFIN_OUTPUT_DIR: /data
+      ROSFIN_INTERVAL: 12h
+      ROSFIN_FORMATS: xml,doc
+      ROSFIN_EXTRACT: "true"
+      # Сколько последних папок хранить, 0 — хранить все
+      ROSFIN_KEEP_RUNS: "0"
+      TZ: Europe/Moscow
+    volumes:
+      - ./downloads:/data
+    # Контейнер работает под uid 10001. Если папка ./downloads на хосте
+    # принадлежит другому пользователю, раскомментируйте и подставьте свой uid:gid
+    # (узнать: id -u && id -g)
+    # user: "1000:1000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

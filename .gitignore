@@ -1,6 +1,13 @@
-
-py_src/venv/
+py_src/venv/
+venv/
 .tmux.conf
 *.bat
-venv/
 
+# Секреты
+.env
+
+# Скачанные перечни
+downloads/
+
+# Сборка
+go_src/build/

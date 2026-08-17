@@ -1,0 +1,6 @@
+.git
+.env
+downloads/
+py_src/
+go_src/build/
+*.md
