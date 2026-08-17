@@ -142,3 +142,46 @@ func TestIsHTML(t *testing.T) {
 		t.Fatal("zip не должен распознаваться как HTML")
 	}
 }
+
+func TestUpdateLatestLinkIsRelative(t *testing.T) {
+	base := t.TempDir()
+	run := filepath.Join(base, "2026-08-17_09-00")
+	if err := os.MkdirAll(run, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(run, "perechen.xml"), []byte("<list/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := UpdateLatestLink(base, run); err != nil {
+		t.Fatal(err)
+	}
+
+	target, err := os.Readlink(filepath.Join(base, "latest"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Ссылка должна быть относительной, иначе она битая при просмотре
+	// смонтированной папки с хоста (контейнер видит /data, хост — другой путь).
+	if filepath.IsAbs(target) {
+		t.Fatalf("симлинк latest абсолютный (%q) — на хосте он будет битым", target)
+	}
+	if target != "2026-08-17_09-00" {
+		t.Fatalf("target = %q", target)
+	}
+	if _, err := os.ReadFile(filepath.Join(base, "latest", "perechen.xml")); err != nil {
+		t.Fatalf("через latest файл не читается: %v", err)
+	}
+
+	// Повторный вызов должен переписывать существующую ссылку.
+	run2 := filepath.Join(base, "2026-08-17_21-00")
+	if err := os.MkdirAll(run2, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateLatestLink(base, run2); err != nil {
+		t.Fatal(err)
+	}
+	if target, _ := os.Readlink(filepath.Join(base, "latest")); target != "2026-08-17_21-00" {
+		t.Fatalf("ссылка не обновилась: %q", target)
+	}
+}

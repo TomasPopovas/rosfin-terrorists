@@ -103,15 +103,15 @@ func WriteManifest(dir string, m Manifest) error {
 }
 
 // UpdateLatestLink обновляет симлинк <base>/latest на папку последнего запуска.
+//
+// Ссылка относительная (просто имя папки), а не абсолютная: внутри контейнера
+// папка видна как /data/<дата>, а на хосте — как /volume1/.../downloads/<дата>,
+// и абсолютная ссылка оказалась бы битой с одной из сторон.
 // На системах без симлинков (Windows без прав) ошибка не критична.
 func UpdateLatestLink(base, runDir string) error {
 	link := filepath.Join(base, "latest")
 	_ = os.Remove(link)
-	target, err := filepath.Abs(runDir)
-	if err != nil {
-		return err
-	}
-	return os.Symlink(target, link)
+	return os.Symlink(filepath.Base(runDir), link)
 }
 
 // PruneOldRuns удаляет самые старые папки запусков, оставляя keep штук.
