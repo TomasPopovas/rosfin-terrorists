@@ -96,6 +96,117 @@ make test                   # тесты
 Логин и пароль можно передать флагами или положить в `.env` в корне репозитория —
 Makefile его подхватывает.
 
+Запуск на Synology NAS
+----------------------
+
+### 1. Куда положить папку для выгрузок
+
+В **File Station** создайте папку, например внутри общей папки `docker`:
+
+```
+/volume1/docker/rosfin/            — папка проекта (сюда лягут исходники)
+/volume1/docker/rosfin/downloads/  — сюда контейнер будет складывать XML и Word
+```
+
+Папка для файлов задаётся **левой частью** строки в `volumes:`. Правую (`/data`)
+менять не нужно — это путь внутри контейнера:
+
+```yaml
+volumes:
+  - /volume1/docker/rosfin/downloads:/data
+```
+
+Хотите другое место — меняйте только левую часть, например
+`/volume1/perechni:/data`.
+
+### 2. Куда вписать логин и пароль
+
+В файл `.env` в папке проекта (рядом с `docker-compose.yml`):
+
+```
+ROSFIN_LOGIN=ваш_логин
+ROSFIN_PASS=ваш_пароль
+```
+
+Это те же логин и пароль, которыми вы входите на portal.fedsfm.ru.
+Контейнер сам логинится ими при каждом запуске. Файл `.env` в `.gitignore` —
+в репозиторий он не попадёт.
+
+Альтернатива через интерфейс: в **Container Manager → Проект → Действие →
+Редактировать**, вписать значения прямо в блок `environment:`. Менее удобно —
+пароль окажется в открытом виде в конфиге проекта.
+
+### 3. Установка (вариант через SSH, самый предсказуемый)
+
+Включите SSH: **Панель управления → Терминал и SNMP → Включить службу SSH**.
+
+```bash
+ssh ваш_логин@адрес-nas
+
+sudo -i
+mkdir -p /volume1/docker/rosfin
+cd /volume1/docker/rosfin
+
+# исходники: клонируем ваш форк
+git clone https://github.com/ВАШ_ЛОГИН/rosfin-terrorists.git .
+
+# папка для выгрузок
+mkdir -p downloads
+
+# конфиг Synology вместо обычного
+cp docker-compose.synology.yml docker-compose.yml
+
+# логин и пароль
+cp .env.example .env
+vi .env          # впишите ROSFIN_LOGIN и ROSFIN_PASS
+
+# узнайте свой uid:gid и подставьте в строку user: в docker-compose.yml
+id ваш_логин
+chown -R 1026:100 downloads     # свои значения из вывода id
+
+docker compose up -d --build
+docker compose logs -f
+```
+
+На DSM 7 команда — `docker compose`, на DSM 6 — `docker-compose`.
+Первая сборка занимает 2–5 минут (скачивается образ Go).
+
+Через минуту в `/volume1/docker/rosfin/downloads` появится первая папка с датой.
+
+### 4. Установка через Container Manager, без SSH
+
+1. **File Station** → создайте `/volume1/docker/rosfin` и внутри `downloads`.
+2. Скачайте архив репозитория (Code → Download ZIP), распакуйте содержимое
+   в `/volume1/docker/rosfin` (в папке должны лежать `Dockerfile`, `go_src`,
+   `docker-compose.synology.yml`).
+3. Переименуйте `docker-compose.synology.yml` в `docker-compose.yml`,
+   `.env.example` — в `.env`, откройте `.env` в текстовом редакторе DSM
+   и впишите логин с паролем.
+4. **Container Manager → Проект → Создать**:
+   * Название: `rosfin-terrorists`
+   * Путь: `/volume1/docker/rosfin`
+   * Источник: «Использовать существующий docker-compose.yml»
+5. Нажмите **Далее → Готово**. DSM соберёт образ и запустит контейнер.
+6. Вкладка **Журнал** покажет строки вида `сохранено: perechen_xml.zip`.
+
+Если в логе `permission denied` при записи в `/data` — не совпал `user:`.
+Проще всего исправить через **Панель управления → Планировщик заданий →
+Создать → Запускаемый скрипт**, от пользователя root, разово:
+`chown -R 1026:100 /volume1/docker/rosfin/downloads`.
+
+### 5. Проверка и обслуживание
+
+```bash
+docker compose logs --tail 50        # что происходит
+docker compose restart               # перечитать .env после смены пароля
+docker compose run --rm rosfin-terrorists -once   # разовое скачивание сейчас
+docker compose down                  # остановить
+```
+
+Расписание живёт внутри контейнера — планировщик заданий DSM настраивать не нужно.
+Контейнер качает перечень сразу при старте и далее каждые 12 часов;
+`restart: unless-stopped` поднимет его после перезагрузки NAS.
+
 Заметки по эксплуатации
 -----------------------
 

@@ -1,0 +1,41 @@
+# Вариант для Synology (Container Manager / Docker).
+# Скопируйте этот файл в папку проекта под именем docker-compose.yml.
+#
+# Перед запуском:
+#   1) создайте на NAS папку для выгрузок, например /volume1/docker/rosfin/downloads
+#   2) положите рядом с этим файлом .env с ROSFIN_LOGIN и ROSFIN_PASS
+#   3) проверьте uid:gid в строке user (см. README, раздел Synology)
+
+services:
+  rosfin-terrorists:
+    build: .
+    image: rosfin-terrorists:latest
+    container_name: rosfin-terrorists
+    restart: unless-stopped
+
+    environment:
+      ROSFIN_LOGIN: ${ROSFIN_LOGIN}
+      ROSFIN_PASS: ${ROSFIN_PASS}
+      ROSFIN_OUTPUT_DIR: /data
+      ROSFIN_INTERVAL: 12h
+      ROSFIN_FORMATS: xml,doc
+      ROSFIN_EXTRACT: "true"
+      # Хранить последние 60 папок (примерно месяц при запуске раз в 12 часов).
+      # 0 — хранить всё.
+      ROSFIN_KEEP_RUNS: "60"
+      TZ: Europe/Moscow
+
+    # uid:gid пользователя DSM, которому принадлежит папка с выгрузками.
+    # Узнать: SSH на NAS → id ваш_логин
+    # 1026 — типичный первый пользователь DSM, 100 — группа users.
+    user: "1026:100"
+
+    volumes:
+      # ЛЕВАЯ часть — папка на NAS, ПРАВАЯ (/data) — внутри контейнера, её не меняем
+      - /volume1/docker/rosfin/downloads:/data
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
