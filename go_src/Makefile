@@ -10,7 +10,7 @@ BINARY := rosfin-terrorists
 once:
 	go run . -once -output ../downloads
 
-## Запуск демона (скачивание каждые 12 часов)
+## Запуск демона (проверка в окнах ROSFIN_WINDOWS, по умолчанию 09–10 и 17–18)
 run:
 	go run . -output ../downloads
 
