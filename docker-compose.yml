@@ -1,24 +1,53 @@
+# Обычный вариант для любого Linux-хоста с Docker.
+# Для Synology NAS используйте docker-compose.synology.yml (см. README).
+#
+# Перед запуском: cp .env.example .env и впишите в .env логин/пароль
+# кабинета (и, если нужно, параметры почты).
+
 services:
   rosfin-terrorists:
     build: .
     image: rosfin-terrorists:latest
     container_name: rosfin-terrorists
     restart: unless-stopped
+
+    # Логин, пароль и почта — только из .env, в этом файле их нет.
     env_file: .env
+
     environment:
       ROSFIN_OUTPUT_DIR: /data
-      ROSFIN_INTERVAL: 12h
-      ROSFIN_FORMATS: xml,doc
+
+      # Два окна ежедневной проверки, минута внутри окна случайная.
+      ROSFIN_WINDOWS: "09:00-10:00,17:00-18:00"
+
+      # Каталоги: all = terrorism (xml+doc), mvk, oon (рус+англ).
+      # Можно сузить: xml,doc,mvk,oon-rus,oon-eng
+      ROSFIN_SOURCES: all
+
+      # Ленты сообщений: all = court + info, либо none, либо список.
+      ROSFIN_FEEDS: all
+
+      # true — скачать всё, игнорируя проверку изменений.
+      ROSFIN_FORCE: "false"
+
+      # Отмечать уведомления кабинета прочитанными после скачивания раздела.
+      ROSFIN_MARK_READ: "true"
+
+      # Письмо и тогда, когда изменений нет (тишина = поломка).
+      ROSFIN_MAIL_ON_QUIET: "true"
+
       ROSFIN_EXTRACT: "true"
-      # Сколько последних папок хранить, 0 — хранить все
-      ROSFIN_KEEP_RUNS: "0"
+      # Сколько последних папок выгрузок хранить. 0 — всё.
+      ROSFIN_KEEP_RUNS: "60"
       TZ: Europe/Moscow
+
+    # Если ./downloads принадлежит не uid 10001 — раскомментируйте
+    # и подставьте вывод `id -u`:`id -g`.
+    # user: "1000:1000"
+
     volumes:
       - ./downloads:/data
-    # Контейнер работает под uid 10001. Если папка ./downloads на хосте
-    # принадлежит другому пользователю, раскомментируйте и подставьте свой uid:gid
-    # (узнать: id -u && id -g)
-    # user: "1000:1000"
+
     logging:
       driver: json-file
       options:

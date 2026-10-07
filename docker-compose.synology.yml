@@ -1,10 +1,17 @@
-# Вариант для Synology (Container Manager / Docker).
+# Вариант для Synology NAS (Container Manager / Docker).
 # Скопируйте этот файл в папку проекта под именем docker-compose.yml.
 #
 # Перед запуском:
-#   1) создайте на NAS папку для выгрузок, например /volume1/docker/rosfin/downloads
-#   2) положите рядом с этим файлом .env с ROSFIN_LOGIN и ROSFIN_PASS
-#   3) проверьте uid:gid в строке user (см. README, раздел Synology)
+# 1) создайте папку для выгрузок, например /volume1/docker/rosfin/downloads
+#    (если путь другой — поменяйте ЛЕВУЮ часть в volumes ниже);
+# 2) положите рядом с этим файлом .env (из .env.example) с логином и паролем
+#    кабинета и, по желанию, параметрами почты;
+# 3) проверьте uid:gid в строке user (см. README, раздел Synology).
+#
+# ВАЖНО про пересборку: кнопка «Собрать» в Container Manager при уже
+# существующем образе только пересоздаёт контейнер и НЕ компилирует код заново.
+# После обновления исходников пересобирайте по SSH:
+#   cd /volume1/docker/rosfin && sudo docker compose -p rosfin-terrorists up -d --build
 
 services:
   rosfin-terrorists:
@@ -13,17 +20,49 @@ services:
     container_name: rosfin-terrorists
     restart: unless-stopped
 
+    # Сеть хоста: на части NAS NAT bridge-сети Docker не работает,
+    # а так контейнер ходит наружу и к почтовому серверу в LAN как сам NAS.
+    network_mode: host
+
+    # Логин, пароль и почта — только из .env, в этом файле их нет.
+    env_file: .env
+
     environment:
-      ROSFIN_LOGIN: ${ROSFIN_LOGIN}
-      ROSFIN_PASS: ${ROSFIN_PASS}
       ROSFIN_OUTPUT_DIR: /data
-      ROSFIN_INTERVAL: 12h
-      ROSFIN_FORMATS: xml,doc
+
+      # Два окна ежедневной проверки, минута внутри окна случайная.
+      ROSFIN_WINDOWS: "09:00-10:00,17:00-18:00"
+
+      # Каталоги: all = terrorism (xml+doc), mvk, oon (рус+англ).
+      # Можно сузить: xml,doc,mvk,oon-rus,oon-eng
+      ROSFIN_SOURCES: all
+
+      # Ленты сообщений: all = court + info, либо none, либо список.
+      ROSFIN_FEEDS: all
+
+      # Проверка изменений: скачиваем только то, что обновилось.
+      # Каталоги сверяются по ленте событий кабинета, ленты — по дате
+      # верхнего сообщения. Отметки хранятся в /data/state.json.
+      # true — скачать всё, игнорируя проверку.
+      ROSFIN_FORCE: "false"
+
+      # Отмечать уведомления прочитанными — только после того, как
+      # соответствующий раздел реально скачан.
+      ROSFIN_MARK_READ: "true"
+
+      # Писать письмо и тогда, когда изменений нет: тишина в почте
+      # должна означать поломку, а не «всё спокойно».
+      ROSFIN_MAIL_ON_QUIET: "true"
+
       ROSFIN_EXTRACT: "true"
-      # Хранить последние 60 папок (примерно месяц при запуске раз в 12 часов).
-      # 0 — хранить всё.
+      # Хранить последние 60 папок. 0 — хранить всё.
+      # Папки создаются только при изменениях, так что это много месяцев.
       ROSFIN_KEEP_RUNS: "60"
       TZ: Europe/Moscow
+
+      # Типы сообщений лент (сняты с портала; менять без нужды не надо).
+      ROSFIN_COURT_MESSAGE_TYPE: "67"
+      ROSFIN_INFO_MESSAGE_TYPE: "11"
 
     # uid:gid пользователя DSM, которому принадлежит папка с выгрузками.
     # Узнать: SSH на NAS → id ваш_логин

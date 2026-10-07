@@ -13,6 +13,11 @@ RUN apk add --no-cache ca-certificates tzdata \
     && mkdir -p /data \
     && chown rosfin:rosfin /data
 
+# Корневой и промежуточные сертификаты Минцифры (НУЦ). Без них TLS
+# до portal.fedsfm.ru не проверяется: x509: certificate signed by unknown authority.
+COPY certs/russian_trusted_root_ca.crt certs/russian_trusted_sub_ca.crt certs/russian_trusted_sub_ca_2024.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 COPY --from=build /out/rosfin-terrorists /usr/local/bin/rosfin-terrorists
 
 USER rosfin
@@ -20,8 +25,6 @@ WORKDIR /data
 VOLUME ["/data"]
 
 ENV ROSFIN_OUTPUT_DIR=/data \
-    ROSFIN_INTERVAL=12h \
-    ROSFIN_FORMATS=xml,doc \
     TZ=Europe/Moscow
 
 ENTRYPOINT ["/usr/local/bin/rosfin-terrorists"]
